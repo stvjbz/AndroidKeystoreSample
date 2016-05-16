@@ -20,6 +20,7 @@ import java.security.KeyPairGenerator;
 import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.interfaces.RSAPrivateKey;
 
 import javax.crypto.Cipher;
 import javax.crypto.CipherInputStream;
@@ -32,7 +33,8 @@ public class MainActivity extends AppCompatActivity {
     private static final String KEY_PROVIDER = "AndroidKeyStore";
     private static final String KEY_ALIAS = "sample key";
     //TODO:API幾つ対応か確認 API19以上だと良い(v4.4 KitKat~)
-    private static final String ALGORITHM = "RSA/ECB/OAEPWithSHA-256AndMGF1Padding";
+    //private static final String ALGORITHM = "RSA/ECB/OAEPWithSHA-256AndMGF1Padding"; // API23~
+    private static final String ALGORITHM = "RSA/ECB/PKCS1Padding"; //API 18+
 
     private KeyStore mKeyStore = null;
 
@@ -64,6 +66,20 @@ public class MainActivity extends AppCompatActivity {
                 view.setText(decryptedText);
             }
         });
+
+        mKeyStoreManager = AndroidKeyStoreManager.getInstance(this);
+        test();
+    }
+
+    private AndroidKeyStoreManager mKeyStoreManager;
+    private void test() {
+        String plainText = "あいうえお";
+        byte[] encryptedBytes = mKeyStoreManager.encrypt(plainText.getBytes());
+        byte[] decryptedBytes = mKeyStoreManager.decrypt(encryptedBytes);
+        String encryptedText = new String(encryptedBytes);
+        String decryptedText = new String(decryptedBytes);
+        Log.d("KeyStoreTest", encryptedText); // -> hogehoge
+        Log.d("KeyStoreTest", decryptedText); // -> hogehoge
     }
 
     private void prepareKeyStore() {
@@ -99,8 +115,9 @@ public class MainActivity extends AppCompatActivity {
                     new KeyGenParameterSpec.Builder(
                             alias,
                             KeyProperties.PURPOSE_DECRYPT)
-                            .setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA512)
-                            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_OAEP)
+                            //test.setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA512)
+                            //.setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_OAEP)
+                            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1)
                             .build());
                     keyPairGenerator.generateKeyPair();
             }
@@ -162,8 +179,11 @@ public class MainActivity extends AppCompatActivity {
             PrivateKey privateKey = (PrivateKey) keyStore.getKey(alias, null);
 
             Cipher cipher = Cipher.getInstance(ALGORITHM);
+            System.out.println("DDDDDDDDDDDDDDDDDD");
             cipher.init(Cipher.DECRYPT_MODE, privateKey);
+            System.out.println("CCCCCCCCCCCCCCCCCC");
 
+            // CipherInputStreamから復号データを読み出すことができる。
             CipherInputStream cipherInputStream = new CipherInputStream(
                     new ByteArrayInputStream(Base64.decode(encryptedText, Base64.DEFAULT)), cipher);
 
@@ -174,6 +194,8 @@ public class MainActivity extends AppCompatActivity {
             }
             outputStream.close();
             plainText = outputStream.toString("UTF-8");
+            System.out.println("CCCCCCCCCCCCCCCCCC");
+
         } catch (Exception e) {
             Log.e(TAG, e.toString());
         }
